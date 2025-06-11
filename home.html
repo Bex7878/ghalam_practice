@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="home_style.css">
+    <title>Map</title>
+</head>
+<body>
+<div class="container">
+    <div class="filters">
+        <div class="filter-group">
+            <label for="region">Регион:</label>
+            <select id="region">
+                <option value="all">Все регионы</option>
+                <option value="abay">Абайская область</option>
+                <option value="akmola">Акмолинская область</option>
+                <option value="aktobe">Актюбинская область</option>
+                <option value="almaty">Алматинская область</option>
+                <option value="atyrau">Атырауская область</option>
+                <option value="east-kazakhstan">Восточно-Казахстанская область</option>
+                <option value="zhambyl">Жамбылская область</option>
+                <option value="zhetysu">Жетысуская область</option>
+                <option value="west-kazakhstan">Западно-Казахстанская область</option>
+                <option value="karaganda">Карагандинская область</option>
+                <option value="kostanay">Костанайская область</option>
+                <option value="kzylorda">Кызылординская область</option>
+                <option value="mangystau">Мангистауская область</option>
+                <option value="pavlodar">Павлодарская область</option>
+                <option value="north-kazakhstan">Северо-Казахстанская область</option>
+                <option value="turkistan">Туркестанская область</option>
+                <option value="ulytau">Улытауская область</option>
+                <option value="almaty-city">г. Алматы</option>
+                <option value="astana">г. Астана</option>
+                <option value="shymkent">г. Шымкент</option>
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label for="date_from">Дата с:</label>
+            <input type="date" id="date_from">
+        </div>
+
+        <div class="filter-group">
+            <label for="date_to">Дата по:</label>
+            <input type="date" id="date_to">
+        </div>
+
+        <button id="apply-filters">Применить</button>
+    </div>
+
+    <div class="map-container">
+        <canvas id="map-chart"></canvas>
+    </div>
+
+    <div class="data-table">
+        <h2>Вывод</h2>
+        <table id="data">
+            <thead>
+            <tr>
+                <th>Регион</th>
+                <th>Данные</th>
+                <th>Дата</th>
+            </tr>
+            </thead>
+            <tbody id="data-body">
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script src="home_script.js"></script>
+</body>
+</html>
