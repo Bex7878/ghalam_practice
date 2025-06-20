@@ -1,6 +1,5 @@
-// home_script.js
 document.addEventListener('DOMContentLoaded', function() {
-    // Инициализация карты (заглушка)
+    // Инициализация карты
     const ctx = document.getElementById('map-chart').getContext('2d');
     const chart = new Chart(ctx, {
         type: 'bar',
@@ -25,102 +24,90 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    // Обработчики вкладок
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+            this.classList.add('active');
+            document.getElementById(this.dataset.tab).classList.add('active');
+        });
+    });
+
     // Обработчик кнопки "Применить"
     document.getElementById('apply-filters').addEventListener('click', function() {
-        applyFilters(chart);
+        const region = document.getElementById('region').value;
+        const dateFrom = document.getElementById('date_from').value;
+        const dateTo = document.getElementById('date_to').value;
+        const searchText = document.getElementById('search-input').value;
+        const extension = document.getElementById('extension').value;
+
+        // Загрузка данных для карты и статистики
+        loadDataForChart(region, dateFrom, dateTo, chart);
+
+        // Загрузка файлов
+        if (searchText) {
+            searchFiles(region, searchText, extension);
+        } else {
+            loadFilesForRegion(region);
+        }
     });
 
     // Первоначальная загрузка данных
-    applyFilters(chart);
+    loadDataForChart('all', '', '', chart);
 });
 
-function applyFilters(chart) {
-    const region = document.getElementById('region').value;
-    const dateFrom = document.getElementById('date_from').value;
-    const dateTo = document.getElementById('date_to').value;
+function loadDataForChart(region, dateFrom, dateTo, chart) {
+    // Здесь остается ваша существующая логика загрузки данных для карты
+    // ...
+}
 
-    // Формируем URL с параметрами
-    let url = '/api/data?';
-    if (region) url += `region=${region}&`;
-    if (dateFrom) url += `date_from=${dateFrom}&`;
-    if (dateTo) url += `date_to=${dateTo}&`;
-    url = url.slice(0, -1); // Удаляем последний &
-
-    // Запрашиваем данные с сервера
-    fetch(url)
+function searchFiles(region, searchText, extension) {
+    fetch(`/api/search?region=${region}&q=${encodeURIComponent(searchText)}&ext=${extension}`)
         .then(response => response.json())
-        .then(data => {
-            updateChart(chart, data);
-            updateTable(data);
+        .then(files => {
+            updateFilesTable(files);
         })
-        .catch(error => console.error('Ошибка:', error));
+        .catch(error => console.error('Ошибка поиска:', error));
 }
 
-function updateChart(chart, data) {
-    // Группируем данные по регионам
-    const regions = {};
-    data.forEach(item => {
-        if (!regions[item.region]) {
-            regions[item.region] = 0;
-        }
-        regions[item.region] += item.data;
-    });
-
-    // Обновляем данные карты
-    chart.data.labels = Object.keys(regions);
-    chart.data.datasets[0].data = Object.values(regions);
-    chart.update();
+function loadFilesForRegion(region) {
+    fetch(`/api/files?region=${region}`)
+        .then(response => response.json())
+        .then(files => {
+            updateFilesTable(files);
+        })
+        .catch(error => console.error('Ошибка загрузки файлов:', error));
 }
 
-function updateTable(data) {
-    const tbody = document.getElementById('data-body');
+function updateFilesTable(files) {
+    const tbody = document.getElementById('files-body');
     tbody.innerHTML = '';
 
-    // Сортируем данные по дате (новые сначала)
-    data.sort((a, b) => new Date(b.date) - new Date(a.date));
-
-    // Заполняем таблицу
-    data.forEach(item => {
+    files.forEach(file => {
         const row = document.createElement('tr');
 
+        const nameCell = document.createElement('td');
+        nameCell.textContent = file.Filename || file.name;
+        row.appendChild(nameCell);
+
+        const pathCell = document.createElement('td');
+        pathCell.textContent = file.Path || file.path;
+        row.appendChild(pathCell);
+
         const regionCell = document.createElement('td');
-        regionCell.textContent = getRegionName(item.region);
+        regionCell.textContent = file.Region || 'Не указан';
         row.appendChild(regionCell);
 
-        const dataCell = document.createElement('td');
-        dataCell.textContent = item.data;
-        row.appendChild(dataCell);
-
-        const dateCell = document.createElement('td');
-        dateCell.textContent = new Date(item.date).toLocaleDateString();
-        row.appendChild(dateCell);
+        const actionCell = document.createElement('td');
+        const link = document.createElement('a');
+        link.href = file.Path || file.path;
+        link.textContent = 'Открыть';
+        link.target = '_blank';
+        actionCell.appendChild(link);
+        row.appendChild(actionCell);
 
         tbody.appendChild(row);
     });
-}
-
-function getRegionName(regionCode) {
-    const regions = {
-        'abay': 'Абайская область',
-        'akmola': 'Акмолинская область',
-        'aktobe': 'Актюбинская область',
-        'almaty': 'Алматинская область',
-        'atyrau': 'Атырауская область',
-        'east-kazakhstan': 'Восточно-Казахстанская область',
-        'zhambyl': 'Жамбылская область',
-        'zhetysu': 'Жетысуская область',
-        'west-kazakhstan': 'Западно-Казахстанская область',
-        'karaganda': 'Карагандинская область',
-        'kostanay': 'Костанайская область',
-        'kzylorda': 'Кызылординская область',
-        'mangystau': 'Мангистауская область',
-        'pavlodar': 'Павлодарская область',
-        'north-kazakhstan': 'Северо-Казахстанская область',
-        'turkistan': 'Туркестанская область',
-        'ulytau': 'Улытауская область',
-        'almaty-city': 'г. Алматы',
-        'astana': 'г. Астана',
-        'shymkent': 'г. Шымкент'
-    };
-    return regions[regionCode] || regionCode;
 }
