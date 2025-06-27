@@ -2,7 +2,7 @@
   "name": "ghalam_practice",
   "version": "1.0.0",
   "description": "",
-  "main": "home_script.js",
+  "main": "frontend/home_script.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },

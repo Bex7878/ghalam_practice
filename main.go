@@ -1,9 +1,11 @@
 package main
 
 import (
+	"archive/zip"
 	"bufio"
 	"flag"
 	"fmt"
+
 	"io/ioutil"
 	"log"
 	"os"
@@ -18,7 +20,7 @@ func main() {
 	showLineNumbers := flag.Bool("n", false, "Показывать номера строк")
 	recursive := flag.Bool("r", false, "Рекурсивный поиск в поддиректориях")
 	showMatchesOnly := flag.Bool("o", false, "Показывать только файлы с совпадениями")
-	fileExtensions := flag.String("ext", "", "Фильтр по расширениям файлов (через запятую, например '.html,.txt')")
+	fileExtensions := flag.String("ext", "", "Фильтр по расширениям файлов (через запятую, например '.html,.txt,.zip')")
 	flag.Parse()
 
 	if len(flag.Args()) < 1 {
@@ -52,7 +54,7 @@ func main() {
 		// Поиск в одиночном файле
 		if *searchTerm != "" {
 			fmt.Printf("=== Поиск в файле: %s ===\n", path)
-			found := searchInFile(path, *searchTerm, *ignoreCase, *showLineNumbers)
+			found := searchInFile(path, *searchTerm, *ignoreCase, *showLineNumbers, *showMatchesOnly)
 			if !found && !*showMatchesOnly {
 				fmt.Println("Совпадений не найдено.")
 			}
@@ -95,11 +97,11 @@ func searchInDirectory(dirPath, searchTerm string, ignoreCase, showLineNumbers, 
 					// Быстрая проверка на наличие строки в файле
 					if fileContains(path, searchTerm, ignoreCase) {
 						fmt.Printf("\n=== Найдено в файле: %s ===\n", path)
-						searchInFile(path, searchTerm, ignoreCase, showLineNumbers)
+						searchInFile(path, searchTerm, ignoreCase, showLineNumbers, showMatchesOnly)
 					}
 				} else {
 					fmt.Printf("\n=== Поиск в файле: %s ===\n", path)
-					searchInFile(path, searchTerm, ignoreCase, showLineNumbers)
+					searchInFile(path, searchTerm, ignoreCase, showLineNumbers, showMatchesOnly)
 				}
 			} else {
 				// Просто показать содержимое файла
@@ -117,6 +119,12 @@ func searchInDirectory(dirPath, searchTerm string, ignoreCase, showLineNumbers, 
 }
 
 func fileContains(filePath, searchTerm string, ignoreCase bool) bool {
+	// Для ZIP-файлов проверяем все файлы внутри
+	if strings.HasSuffix(strings.ToLower(filePath), ".zip") {
+		return zipContains(filePath, searchTerm, ignoreCase)
+	}
+
+	// Для обычных файлов
 	file, err := os.Open(filePath)
 	if err != nil {
 		return false
@@ -142,7 +150,48 @@ func fileContains(filePath, searchTerm string, ignoreCase bool) bool {
 	return false
 }
 
-func searchInFile(filePath, searchTerm string, ignoreCase, showLineNumbers bool) bool {
+func zipContains(zipPath, searchTerm string, ignoreCase bool) bool {
+	r, err := zip.OpenReader(zipPath)
+	if err != nil {
+		return false
+	}
+	defer r.Close()
+
+	searchTermLower := searchTerm
+	if ignoreCase {
+		searchTermLower = strings.ToLower(searchTerm)
+	}
+
+	for _, f := range r.File {
+		rc, err := f.Open()
+		if err != nil {
+			continue
+		}
+
+		scanner := bufio.NewScanner(rc)
+		for scanner.Scan() {
+			line := scanner.Text()
+			if ignoreCase {
+				line = strings.ToLower(line)
+			}
+			if strings.Contains(line, searchTermLower) {
+				rc.Close()
+				return true
+			}
+		}
+		rc.Close()
+	}
+
+	return false
+}
+
+func searchInFile(filePath, searchTerm string, ignoreCase, showLineNumbers, showMatchesOnly bool) bool {
+	// Обработка ZIP-архивов
+	if strings.HasSuffix(strings.ToLower(filePath), ".zip") {
+		return searchInZipFile(filePath, searchTerm, ignoreCase, showLineNumbers, showMatchesOnly)
+	}
+
+	// Обработка обычных файлов
 	file, err := os.Open(filePath)
 	if err != nil {
 		log.Printf("Ошибка открытия файла %s: %v", filePath, err)
@@ -183,17 +232,70 @@ func searchInFile(filePath, searchTerm string, ignoreCase, showLineNumbers bool)
 	return found
 }
 
-func printFileContent(filePath string) {
-	content, err := ioutil.ReadFile(filePath)
+func searchInZipFile(zipPath, searchTerm string, ignoreCase, showLineNumbers, showMatchesOnly bool) bool {
+	r, err := zip.OpenReader(zipPath)
 	if err != nil {
-		log.Printf("Ошибка чтения файла %s: %v", filePath, err)
+		log.Printf("Ошибка открытия ZIP-архива %s: %v", zipPath, err)
+		return false
+	}
+	defer r.Close()
+
+	searchTermLower := searchTerm
+	if ignoreCase {
+		searchTermLower = strings.ToLower(searchTerm)
+	}
+
+	anyFound := false
+
+	for _, f := range r.File {
+		rc, err := f.Open()
+		if err != nil {
+			log.Printf("Ошибка открытия файла %s в архиве %s: %v", f.Name, zipPath, err)
+			continue
+		}
+
+		scanner := bufio.NewScanner(rc)
+		lineNumber := 1
+		fileFound := false
+
+		for scanner.Scan() {
+			line := scanner.Text()
+			lineToCompare := line
+			if ignoreCase {
+				lineToCompare = strings.ToLower(line)
+			}
+
+			if strings.Contains(lineToCompare, searchTermLower) {
+				if !fileFound {
+					fmt.Printf("\n=== Найдено в файле внутри архива: %s/%s ===\n", zipPath, f.Name)
+					fileFound = true
+					anyFound = true
+				}
+				if showLineNumbers {
+					fmt.Printf("%d: ", lineNumber)
+				}
+				fmt.Println(line)
+			}
+			lineNumber++
+		}
+
+		rc.Close()
+	}
+
+	return anyFound
+}
+
+func printFileContent(filePath string) {
+	// Обработка ZIP-архивов
+	if strings.HasSuffix(strings.ToLower(filePath), ".zip") {
+		printZipContent(filePath)
 		return
 	}
 
-	// Для HTML файлов просто выводим содержимое без проверки на бинарность
-	if strings.HasSuffix(strings.ToLower(filePath), ".html") ||
-		strings.HasSuffix(strings.ToLower(filePath), ".htm") {
-		fmt.Println(string(content))
+	// Обработка обычных файлов
+	content, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		log.Printf("Ошибка чтения файла %s: %v", filePath, err)
 		return
 	}
 
@@ -204,17 +306,29 @@ func printFileContent(filePath string) {
 	}
 }
 
+func printZipContent(zipPath string) {
+	r, err := zip.OpenReader(zipPath)
+	if err != nil {
+		log.Printf("Ошибка открытия ZIP-архива %s: %v", zipPath, err)
+		return
+	}
+	defer r.Close()
+
+	fmt.Printf("Содержимое ZIP-архива: %s\n", zipPath)
+	for _, f := range r.File {
+		fmt.Printf("  %s (размер: %d байт)\n", f.Name, f.UncompressedSize64)
+	}
+}
+
 func isText(content []byte) bool {
 	if len(content) == 0 {
 		return true
 	}
 
-	// Более мягкая проверка для текстовых файлов
 	nonTextChars := 0
 	for _, b := range content {
 		if b < 32 && b != '\t' && b != '\n' && b != '\r' && b != '\f' {
 			nonTextChars++
-			// Если более 5% символов - не текстовые, считаем файл бинарным
 			if float64(nonTextChars)/float64(len(content)) > 0.05 {
 				return false
 			}
