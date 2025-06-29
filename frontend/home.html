@@ -2,16 +2,15 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <link rel="stylesheet" href="home_style.css">
     <title>Карта и поиск файлов</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-LN+7fdVzj6u52u30Kp6M/trliBMCMKTyK833zpbD+pXdCLuTusPj697FH4R/5mcr" crossorigin="anonymous">
 </head>
-<body>
-<div class="container">
-    <div class="filters">
-        <!-- Существующие фильтры -->
-        <div class="filter-group">
-            <label for="region">Регион:</label>
-            <select id="region">
+<body class="bg-light p-4">
+<div class="container bg-white p-4 rounded shadow">
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <label for="region" class="form-label fw-bold">Регион:</label>
+            <select id="region" class="form-select">
                 <option value="all">Все регионы</option>
                 <option value="abay">Абайская область</option>
                 <option value="akmola">Акмолинская область</option>
@@ -36,25 +35,24 @@
             </select>
         </div>
 
-        <div class="filter-group">
-            <label for="date_from">Дата с:</label>
-            <input type="date" id="date_from">
+        <div class="col-md-2">
+            <label for="date_from" class="form-label fw-bold">Дата с:</label>
+            <input type="date" id="date_from" class="form-control">
         </div>
 
-        <div class="filter-group">
-            <label for="date_to">Дата по:</label>
-            <input type="date" id="date_to">
+        <div class="col-md-2">
+            <label for="date_to" class="form-label fw-bold">Дата по:</label>
+            <input type="date" id="date_to" class="form-control">
         </div>
 
-        <!-- Новые поля для поиска файлов -->
-        <div class="filter-group">
-            <label for="search-input">Поиск в файлах:</label>
-            <input type="text" id="search-input" placeholder="Введите текст">
+        <div class="col-md-3">
+            <label for="search-input" class="form-label fw-bold">Поиск в файлах:</label>
+            <input type="text" id="search-input" class="form-control" placeholder="Введите текст">
         </div>
 
-        <div class="filter-group">
-            <label for="extension">Расширение:</label>
-            <select id="extension">
+        <div class="col-md-2">
+            <label for="extension" class="form-label fw-bold">Расширение:</label>
+            <select id="extension" class="form-select">
                 <option value="">Все</option>
                 <option value=".html">.html</option>
                 <option value=".txt">.txt</option>
@@ -64,53 +62,59 @@
             </select>
         </div>
 
-        <button id="apply-filters">Применить</button>
+        <div class="col-md-12 d-flex justify-content-end">
+            <button id="apply-filters" class="btn btn-primary mt-2">Применить</button>
+        </div>
     </div>
 
-    <div class="map-container">
+    <div class="mb-4 p-3 bg-light border rounded" style="height: 400px;">
         <canvas id="map-chart"></canvas>
     </div>
 
-    <div class="data-table">
-        <h2>Вывод данных</h2>
-        <div class="tabs">
-            <button class="tab-btn active" data-tab="stats-tab">Статистика</button>
-            <button class="tab-btn" data-tab="files-tab">Файлы</button>
-        </div>
+    <div>
+        <h2 class="text-center mb-3">Вывод данных</h2>
 
-        <!-- Таблица статистики (существующая) -->
-        <div id="stats-tab" class="tab-content active">
-            <table id="data">
-                <thead>
-                <tr>
-                    <th>Регион</th>
-                    <th>Данные</th>
-                    <th>Дата</th>
-                </tr>
-                </thead>
-                <tbody id="data-body">
-                </tbody>
-            </table>
-        </div>
+        <ul class="nav nav-tabs mb-3" id="dataTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="stats-tab-btn" data-bs-toggle="tab" data-bs-target="#stats-tab" type="button" role="tab">Статистика</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="files-tab-btn" data-bs-toggle="tab" data-bs-target="#files-tab" type="button" role="tab">Файлы</button>
+            </li>
+        </ul>
 
-        <!-- Новая таблица для отображения файлов -->
-        <div id="files-tab" class="tab-content">
-            <table id="files-data">
-                <thead>
-                <tr>
-                    <th>Имя файла</th>
-                    <th>Путь</th>
-                    <th>Регион</th>
-                    <th>Действия</th>
-                </tr>
-                </thead>
-                <tbody id="files-body">
-                </tbody>
-            </table>
+        <div class="tab-content" id="dataTabsContent">
+            <div class="tab-pane fade show active" id="stats-tab" role="tabpanel">
+                <table class="table table-bordered table-striped">
+                    <thead>
+                    <tr>
+                        <th>Регион</th>
+                        <th>Данные</th>
+                        <th>Дата</th>
+                    </tr>
+                    </thead>
+                    <tbody id="data-body"></tbody>
+                </table>
+            </div>
+
+            <div class="tab-pane fade" id="files-tab" role="tabpanel">
+                <table class="table table-bordered">
+                    <thead>
+                    <tr>
+                        <th>Имя файла</th>
+                        <th>Путь</th>
+                        <th>Регион</th>
+                        <th>Действия</th>
+                    </tr>
+                    </thead>
+                    <tbody id="files-body"></tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js" integrity="sha384-ndDqU0Gzau9qJ1lfW4pNLlhNTkCfHzAVBReH9diLvGRem5+R9g2FzA8ZGN954O5Q" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="home_script.js"></script>
 </body>
