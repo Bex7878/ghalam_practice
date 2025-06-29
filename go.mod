@@ -1,4 +1,4 @@
-module softForSearch
+module github.com/Bex7878/ghalam_practice
 
 go 1.24
 
