@@ -1,39 +1,14 @@
 document.addEventListener('DOMContentLoaded', function() {
     // Инициализация карты
-    const ctx = document.getElementById('map-chart').getContext('2d');
-    const chart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: [],
-            datasets: [{
-                label: 'Данные по регионам',
-                data: [],
-                backgroundColor: 'rgba(54, 162, 235, 0.5)',
-                borderColor: 'rgba(54, 162, 235, 1)',
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: {
-                    beginAtZero: true
-                }
-            }
-        }
-    });
+    const map = L.map('map').setView([48.0, 67.0], 5); // Центр Казахстана
 
-    // Обработчики вкладок
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    // Добавляем слой OpenStreetMap
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
 
-            this.classList.add('active');
-            document.getElementById(this.dataset.tab).classList.add('active');
-        });
-    });
+    let markers = [];
+    let regionLayers = {};
 
     // Обработчик кнопки "Применить"
     document.getElementById('apply-filters').addEventListener('click', function() {
@@ -43,70 +18,165 @@ document.addEventListener('DOMContentLoaded', function() {
         const searchText = document.getElementById('search-input').value;
         const extension = document.getElementById('extension').value;
 
-        // Загрузка данных для карты и статистики
-        loadDataForChart(region, dateFrom, dateTo, chart);
-
-        // Загрузка файлов
-        if (searchText) {
-            searchFiles(region, searchText, extension);
-        } else {
-            loadFilesForRegion(region);
-        }
+        searchFiles(region, dateFrom, dateTo, searchText, extension, map);
     });
 
     // Первоначальная загрузка данных
-    loadDataForChart('all', '', '', chart);
+    searchFiles('all', '', '', '', '', map);
 });
 
-function loadDataForChart(region, dateFrom, dateTo, chart) {
-    // Здесь остается ваша существующая логика загрузки данных для карты
-    // ...
+function clearMap(map) {
+    // Удаляем все маркеры
+    for (const region in regionLayers) {
+        map.removeLayer(regionLayers[region]);
+    }
+    regionLayers = {};
 }
 
-function searchFiles(region, searchText, extension) {
-    fetch(`/api/search?region=${region}&q=${encodeURIComponent(searchText)}&ext=${extension}`)
-        .then(response => response.json())
-        .then(files => {
-            updateFilesTable(files);
-        })
-        .catch(error => console.error('Ошибка поиска:', error));
+async function searchFiles(region, dateFrom, dateTo, searchText, extension, map) {
+    try {
+        const params = new URLSearchParams();
+        params.append('region', region);
+        if (dateFrom) params.append('date_from', dateFrom);
+        if (dateTo) params.append('date_to', dateTo);
+        if (searchText) params.append('q', searchText);
+        if (extension) params.append('ext', extension);
+
+        const response = await fetch(`/api/search?${params.toString()}`);
+
+        if (!response.ok) throw new Error('Ошибка сервера');
+
+        const files = await response.json();
+
+        if (!Array.isArray(files)) {
+            throw new Error('Некорректный формат данных');
+        }
+
+        updateMap(map, files);
+        updateFilesTable(files, map);
+    } catch (error) {
+        console.error('Ошибка:', error);
+        updateFilesTable([], map);
+    }
 }
 
-function loadFilesForRegion(region) {
-    fetch(`/api/files?region=${region}`)
-        .then(response => response.json())
-        .then(files => {
-            updateFilesTable(files);
-        })
-        .catch(error => console.error('Ошибка загрузки файлов:', error));
+function updateMap(map, files) {
+    clearMap(map);
+
+    // Группируем файлы по регионам
+    const filesByRegion = {};
+    files.forEach(file => {
+        if (!filesByRegion[file.Region]) {
+            filesByRegion[file.Region] = [];
+        }
+        filesByRegion[file.Region].push(file);
+    });
+
+    // Добавляем маркеры для каждого региона
+    for (const region in filesByRegion) {
+        const regionFiles = filesByRegion[region];
+        const regionGroup = L.layerGroup();
+
+        regionFiles.forEach(file => {
+            const marker = L.marker([file.Lat, file.Lon], {
+                title: file.Filename
+            }).bindPopup(`
+                <b>${file.Filename}</b><br>
+                <i>${file.Region}</i><br>
+                Дата: ${new Date(file.Date).toLocaleDateString()}<br>
+                <a href="${file.Path}" target="_blank">Открыть файл</a>
+            `);
+
+            regionGroup.addLayer(marker);
+        });
+
+        regionGroup.addTo(map);
+        regionLayers[region] = regionGroup;
+    }
+
+    // Автоматически подбираем масштаб
+    if (files.length > 0) {
+        const bounds = L.latLngBounds(files.map(f => [f.Lat, f.Lon]));
+        map.fitBounds(bounds, { padding: [50, 50] });
+    }
 }
 
-function updateFilesTable(files) {
-    const tbody = document.getElementById('files-body');
+function updateFilesTable(files, map) {
+    const tbody = document.getElementById('data-body');
+    if (!tbody) return;
+
     tbody.innerHTML = '';
 
-    files.forEach(file => {
+    const safeFiles = Array.isArray(files) ? files : [];
+
+    safeFiles.forEach(file => {
         const row = document.createElement('tr');
 
+        // Название файла
         const nameCell = document.createElement('td');
-        nameCell.textContent = file.Filename || file.name;
+        nameCell.textContent = file.Filename;
         row.appendChild(nameCell);
 
-        const pathCell = document.createElement('td');
-        pathCell.textContent = file.Path || file.path;
-        row.appendChild(pathCell);
-
+        // Регион
         const regionCell = document.createElement('td');
-        regionCell.textContent = file.Region || 'Не указан';
+        regionCell.textContent = file.Region;
         row.appendChild(regionCell);
 
+        // Дата
+        const dateCell = document.createElement('td');
+        dateCell.textContent = new Date(file.Date).toLocaleDateString();
+        row.appendChild(dateCell);
+
+        // Действия
         const actionCell = document.createElement('td');
         const link = document.createElement('a');
-        link.href = file.Path || file.path;
+        link.href = file.Path;
         link.textContent = 'Открыть';
         link.target = '_blank';
         actionCell.appendChild(link);
+
+        // Кнопка для показа на карте
+        const showOnMapBtn = document.createElement('button');
+        showOnMapBtn.textContent = 'Показать на карте';
+        showOnMapBtn.addEventListener('click', () => {
+            map.setView([file.Lat, file.Lon], 10);
+            const marker = Object.values(regionLayers)
+                .flatMap(layer => layer.getLayers())
+                .find(m => m.options.title === file.Filename);
+            if (marker) marker.openPopup();
+        });
+        actionCell.appendChild(showOnMapBtn);
+
         row.appendChild(actionCell);
+
+        // Подсветка при наведении
+        row.addEventListener('mouseenter', () => {
+            const marker = Object.values(regionLayers)
+                .flatMap(layer => layer.getLayers())
+                .find(m => m.options.title === file.Filename);
+            if (marker) {
+                marker.setIcon(L.icon({
+                    iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+                    iconSize: [25, 41],
+                    iconAnchor: [12, 41],
+                    popupAnchor: [1, -34],
+                }));
+            }
+        });
+
+        row.addEventListener('mouseleave', () => {
+            const marker = Object.values(regionLayers)
+                .flatMap(layer => layer.getLayers())
+                .find(m => m.options.title === file.Filename);
+            if (marker) {
+                marker.setIcon(L.icon({
+                    iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+                    iconSize: [25, 41],
+                    iconAnchor: [12, 41],
+                    popupAnchor: [1, -34],
+                }));
+            }
+        });
 
         tbody.appendChild(row);
     });
