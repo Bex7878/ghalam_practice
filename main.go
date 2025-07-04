@@ -5,7 +5,6 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-
 	"io/ioutil"
 	"log"
 	"os"

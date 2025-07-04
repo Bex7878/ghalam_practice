@@ -1,8 +1,8 @@
 document.addEventListener('DOMContentLoaded', function() {
-    // Инициализация карты
+
     const map = L.map('map').setView([48.0, 67.0], 5); // Центр Казахстана
 
-    // Добавляем слой OpenStreetMap
+
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     }).addTo(map);
@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let markers = [];
     let regionLayers = {};
 
-    // Обработчик кнопки "Применить"
+
     document.getElementById('apply-filters').addEventListener('click', function() {
         const region = document.getElementById('region').value;
         const dateFrom = document.getElementById('date_from').value;
@@ -21,12 +21,12 @@ document.addEventListener('DOMContentLoaded', function() {
         searchFiles(region, dateFrom, dateTo, searchText, extension, map);
     });
 
-    // Первоначальная загрузка данных
+
     searchFiles('all', '', '', '', '', map);
 });
 
 function clearMap(map) {
-    // Удаляем все маркеры
+    
     for (const region in regionLayers) {
         map.removeLayer(regionLayers[region]);
     }
@@ -63,7 +63,7 @@ async function searchFiles(region, dateFrom, dateTo, searchText, extension, map)
 function updateMap(map, files) {
     clearMap(map);
 
-    // Группируем файлы по регионам
+
     const filesByRegion = {};
     files.forEach(file => {
         if (!filesByRegion[file.Region]) {
@@ -72,7 +72,7 @@ function updateMap(map, files) {
         filesByRegion[file.Region].push(file);
     });
 
-    // Добавляем маркеры для каждого региона
+
     for (const region in filesByRegion) {
         const regionFiles = filesByRegion[region];
         const regionGroup = L.layerGroup();
@@ -94,7 +94,7 @@ function updateMap(map, files) {
         regionLayers[region] = regionGroup;
     }
 
-    // Автоматически подбираем масштаб
+
     if (files.length > 0) {
         const bounds = L.latLngBounds(files.map(f => [f.Lat, f.Lon]));
         map.fitBounds(bounds, { padding: [50, 50] });
@@ -112,7 +112,7 @@ function updateFilesTable(files, map) {
     safeFiles.forEach(file => {
         const row = document.createElement('tr');
 
-        // Название файла
+
         const nameCell = document.createElement('td');
         nameCell.textContent = file.Filename;
         row.appendChild(nameCell);
@@ -135,7 +135,7 @@ function updateFilesTable(files, map) {
         link.target = '_blank';
         actionCell.appendChild(link);
 
-        // Кнопка для показа на карте
+
         const showOnMapBtn = document.createElement('button');
         showOnMapBtn.textContent = 'Показать на карте';
         showOnMapBtn.addEventListener('click', () => {
@@ -149,7 +149,7 @@ function updateFilesTable(files, map) {
 
         row.appendChild(actionCell);
 
-        // Подсветка при наведении
+
         row.addEventListener('mouseenter', () => {
             const marker = Object.values(regionLayers)
                 .flatMap(layer => layer.getLayers())
